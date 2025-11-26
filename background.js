@@ -14,3 +14,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
         });
     }
 });
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "OPEN_DASHBOARD") {
+        chrome.tabs.create({ url: 'dashboard.html' });
+    }
+});

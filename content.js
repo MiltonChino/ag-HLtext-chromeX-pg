@@ -71,6 +71,29 @@ style.textContent = `
     padding: 16px;
   }
 
+  .footer {
+    padding: 16px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    background: #f8f9fa;
+  }
+
+  .manage-btn {
+    width: 100%;
+    padding: 8px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.2s;
+  }
+
+  .manage-btn:hover {
+    background: #0056b3;
+  }
+
   .highlight-card {
     background: white;
     border: 1px solid #eee;
@@ -147,6 +170,9 @@ sidebar.innerHTML = `
       Select text and right-click to highlight
     </div>
   </div>
+  <div class="footer">
+    <button class="manage-btn">Manage Highlights</button>
+  </div>
   <button class="toggle-btn" style="display: none;">‹</button>
 `;
 
@@ -157,181 +183,178 @@ let highlights = [];
 
 // Helper: Generate a unique CSS selector path for an element
 function getPath(element) {
-    if (!(element instanceof Element)) return null;
-    const path = [];
-    while (element.nodeType === Node.ELEMENT_NODE) {
-        let selector = element.nodeName.toLowerCase();
+  if (!(element instanceof Element)) return null;
+  const path = [];
+  while (element.nodeType === Node.ELEMENT_NODE) {
+    let selector = element.nodeName.toLowerCase();
 
-        // Only use ID if it looks stable (simple heuristic: no numbers, not too long)
-        if (element.id && /^[a-zA-Z_-]+$/.test(element.id) && element.id.length < 50) {
-            selector += '#' + element.id;
-            path.unshift(selector);
-            break;
-        } else {
-            let sibling = element;
-            let nth = 1;
-            while (sibling = sibling.previousElementSibling) {
-                if (sibling.nodeName.toLowerCase() == selector)
-                    nth++;
-            }
-            if (nth != 1)
-                selector += ":nth-of-type(" + nth + ")";
-        }
-        path.unshift(selector);
-        element = element.parentNode;
+    // Only use ID if it looks stable (simple heuristic: no numbers, not too long)
+    if (element.id && /^[a-zA-Z_-]+$/.test(element.id) && element.id.length < 50) {
+      selector += '#' + element.id;
+      path.unshift(selector);
+      break;
+    } else {
+      let sibling = element;
+      let nth = 1;
+      while (sibling = sibling.previousElementSibling) {
+        if (sibling.nodeName.toLowerCase() == selector)
+          nth++;
+      }
+      if (nth != 1)
+        selector += ":nth-of-type(" + nth + ")";
     }
-    return path.join(" > ");
+    path.unshift(selector);
+    element = element.parentNode;
+  }
+  return path.join(" > ");
 }
 
 // Refined Path Logic for Text Nodes
 function getDomPath(node) {
-    if (!node) return null;
+  if (!node) return null;
 
-    // If it's a text node, get path to parent and index
-    if (node.nodeType === Node.TEXT_NODE) {
-        const parent = node.parentNode;
-        const parentPath = getPath(parent);
-        const childIndex = Array.from(parent.childNodes).indexOf(node);
-        return { parentPath, childIndex, type: 'text' };
-    }
+  // If it's a text node, get path to parent and index
+  if (node.nodeType === Node.TEXT_NODE) {
+    const parent = node.parentNode;
+    const parentPath = getPath(parent);
+    const childIndex = Array.from(parent.childNodes).indexOf(node);
+    return { parentPath, childIndex, type: 'text' };
+  }
 
-    // If element
-    return { parentPath: getPath(node), type: 'element' };
+  // If element
+  return { parentPath: getPath(node), type: 'element' };
 }
 
 function getNodeFromDomPath(pathObj) {
-    if (!pathObj) return null;
-    try {
-        const parent = document.querySelector(pathObj.parentPath);
-        if (!parent) return null;
+  if (!pathObj) return null;
+  try {
+    const parent = document.querySelector(pathObj.parentPath);
+    if (!parent) return null;
 
-        if (pathObj.type === 'text') {
-            // Try exact index first
-            if (parent.childNodes[pathObj.childIndex]) {
-                return parent.childNodes[pathObj.childIndex];
-            }
-            // Fallback: Return the parent (we might highlight the whole element or search text)
-            return parent;
-        }
-        return parent;
-    } catch (e) {
-        console.error("Error finding node:", e);
-        return null;
+    if (pathObj.type === 'text') {
+      // Try exact index first
+      if (parent.childNodes[pathObj.childIndex]) {
+        return parent.childNodes[pathObj.childIndex];
+      }
+      // Fallback: Return the parent (we might highlight the whole element or search text)
+      return parent;
     }
+    return parent;
+  } catch (e) {
+    console.error("Error finding node:", e);
+    return null;
+  }
 }
 
 function highlightRange(range, id) {
-    try {
-        const span = document.createElement('span');
-        span.style.backgroundColor = '#ffd700';
-        span.style.color = '#000';
-        span.dataset.highlightId = id; // Store ID to remove later if needed
-        range.surroundContents(span);
-        return true;
-    } catch (e) {
-        console.warn("Could not highlight range:", e);
-        return false;
-    }
+  try {
+    const span = document.createElement('span');
+    span.style.backgroundColor = '#ffd700';
+    span.style.color = '#000';
+    span.dataset.highlightId = id; // Store ID to remove later if needed
+    range.surroundContents(span);
+    return true;
+  } catch (e) {
+    console.warn("Could not highlight range:", e);
+    return false;
+  }
 }
 
 function addHighlight(text, range) {
-    const startPath = getDomPath(range.startContainer);
-    const endPath = getDomPath(range.endContainer);
+  const startPath = getDomPath(range.startContainer);
+  const endPath = getDomPath(range.endContainer);
 
-    const highlight = {
-        id: Date.now(),
-        text: text,
-        url: window.location.href,
-        date: new Date().toLocaleDateString(),
-        dom: {
-            startPath: startPath,
-            startOffset: range.startOffset,
-            endPath: endPath,
-            endOffset: range.endOffset,
-            containerText: range.startContainer.textContent // Store context for fallback
-        }
-    };
+  const highlight = {
+    id: Date.now(),
+    text: text,
+    url: window.location.href,
+    date: new Date().toLocaleDateString(),
+    dom: {
+      startPath: startPath,
+      startOffset: range.startOffset,
+      endPath: endPath,
+      endOffset: range.endOffset,
+      containerText: range.startContainer.textContent // Store context for fallback
+    }
+  };
 
-    // Visual Highlight
-    highlightRange(range, highlight.id);
+  // Visual Highlight
+  highlightRange(range, highlight.id);
 
-    highlights.unshift(highlight);
-    saveHighlights();
-    renderHighlights();
+  highlights.unshift(highlight);
+  saveHighlights();
+  renderHighlights();
 
-    sidebar.classList.add('visible');
-    toggleBtn.style.display = 'none';
+  sidebar.classList.add('visible');
+  toggleBtn.style.display = 'none';
 }
 
 function restoreHighlights() {
-    highlights.forEach(h => {
-        if (!h.dom) return;
+  highlights.forEach(h => {
+    if (!h.dom) return;
 
-        let startNode = getNodeFromDomPath(h.dom.startPath);
-        let endNode = getNodeFromDomPath(h.dom.endPath);
+    let startNode = getNodeFromDomPath(h.dom.startPath);
+    let endNode = getNodeFromDomPath(h.dom.endPath);
 
-        // Fallback: Text Search if exact path fails or content changed
-        if ((!startNode || !endNode) && h.text) {
-            console.log("Exact path failed, trying text search for:", h.text);
-            // Simple fallback: search in body
-            // This is expensive and risky, but better than nothing.
-            // A better approach is to search within the parent of the path if found.
+    // Fallback: Text Search if exact path fails or content changed
+    if ((!startNode || !endNode) && h.text) {
+      console.log("Exact path failed, trying text search for:", h.text);
 
-            // Try to find the parent element at least
-            const parent = document.querySelector(h.dom.startPath.parentPath);
-            if (parent) {
-                // Look for text node containing the text
-                const walker = document.createTreeWalker(parent, NodeFilter.SHOW_TEXT);
-                let node;
-                while (node = walker.nextNode()) {
-                    if (node.textContent.includes(h.text)) {
-                        startNode = node;
-                        endNode = node;
-                        h.dom.startOffset = node.textContent.indexOf(h.text);
-                        h.dom.endOffset = h.dom.startOffset + h.text.length;
-                        break;
-                    }
-                }
-            }
+      // Try to find the parent element at least
+      const parent = document.querySelector(h.dom.startPath.parentPath);
+      if (parent) {
+        // Look for text node containing the text
+        const walker = document.createTreeWalker(parent, NodeFilter.SHOW_TEXT);
+        let node;
+        while (node = walker.nextNode()) {
+          if (node.textContent.includes(h.text)) {
+            startNode = node;
+            endNode = node;
+            h.dom.startOffset = node.textContent.indexOf(h.text);
+            h.dom.endOffset = h.dom.startOffset + h.text.length;
+            break;
+          }
         }
+      }
+    }
 
-        if (startNode && endNode) {
-            const range = document.createRange();
-            try {
-                // Ensure offsets are valid
-                const startLen = startNode.length || startNode.textContent.length;
-                const endLen = endNode.length || endNode.textContent.length;
+    if (startNode && endNode) {
+      const range = document.createRange();
+      try {
+        // Ensure offsets are valid
+        const startLen = startNode.length || startNode.textContent.length;
+        const endLen = endNode.length || endNode.textContent.length;
 
-                const startOffset = Math.min(h.dom.startOffset, startLen);
-                const endOffset = Math.min(h.dom.endOffset, endLen);
+        const startOffset = Math.min(h.dom.startOffset, startLen);
+        const endOffset = Math.min(h.dom.endOffset, endLen);
 
-                range.setStart(startNode, startOffset);
-                range.setEnd(endNode, endOffset);
-                highlightRange(range, h.id);
-            } catch (e) {
-                console.warn("Failed to restore highlight:", h.id, e);
-            }
-        }
-    });
+        range.setStart(startNode, startOffset);
+        range.setEnd(endNode, endOffset);
+        highlightRange(range, h.id);
+      } catch (e) {
+        console.warn("Failed to restore highlight:", h.id, e);
+      }
+    }
+  });
 }
 
 function renderHighlights() {
-    const list = shadowRoot.getElementById('list');
-    list.innerHTML = '';
+  const list = shadowRoot.getElementById('list');
+  list.innerHTML = '';
 
-    if (highlights.length === 0) {
-        list.innerHTML = `
+  if (highlights.length === 0) {
+    list.innerHTML = `
       <div style="text-align: center; color: #888; margin-top: 20px; font-size: 13px;">
         Select text and right-click to highlight
       </div>
     `;
-        return;
-    }
+    return;
+  }
 
-    highlights.forEach(h => {
-        const card = document.createElement('div');
-        card.className = 'highlight-card';
-        card.innerHTML = `
+  highlights.forEach(h => {
+    const card = document.createElement('div');
+    card.className = 'highlight-card';
+    card.innerHTML = `
       <div class="highlight-text">${h.text}</div>
       <div class="highlight-meta">
         <span>${h.date}</span>
@@ -339,81 +362,86 @@ function renderHighlights() {
       </div>
     `;
 
-        // Add delete listener
-        card.querySelector('.delete-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            deleteHighlight(h.id);
-        });
-
-        // Optional: Click to scroll to highlight
-        card.addEventListener('click', () => {
-            const el = document.querySelector(`span[data-highlight-id="${h.id}"]`);
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-        });
-
-        list.appendChild(card);
+    // Add delete listener
+    card.querySelector('.delete-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteHighlight(h.id);
     });
+
+    // Optional: Click to scroll to highlight
+    card.addEventListener('click', () => {
+      const el = document.querySelector(`span[data-highlight-id="${h.id}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
+    list.appendChild(card);
+  });
 }
 
 function deleteHighlight(id) {
-    // Remove visual highlight from DOM
-    const spans = document.querySelectorAll(`span[data-highlight-id="${id}"]`);
-    spans.forEach(span => {
-        const parent = span.parentNode;
-        while (span.firstChild) parent.insertBefore(span.firstChild, span);
-        parent.removeChild(span);
-    });
+  // Remove visual highlight from DOM
+  const spans = document.querySelectorAll(`span[data-highlight-id="${id}"]`);
+  spans.forEach(span => {
+    const parent = span.parentNode;
+    while (span.firstChild) parent.insertBefore(span.firstChild, span);
+    parent.removeChild(span);
+  });
 
-    highlights = highlights.filter(h => h.id !== id);
-    saveHighlights();
-    renderHighlights();
+  highlights = highlights.filter(h => h.id !== id);
+  saveHighlights();
+  renderHighlights();
 }
 
 function saveHighlights() {
-    chrome.storage.local.set({ ['highlights_' + window.location.hostname]: highlights });
+  chrome.storage.local.set({ ['highlights_' + window.location.hostname]: highlights });
 }
 
 function loadHighlights() {
-    chrome.storage.local.get(['highlights_' + window.location.hostname], (result) => {
-        if (result['highlights_' + window.location.hostname]) {
-            highlights = result['highlights_' + window.location.hostname];
-            renderHighlights();
-            // Delay restoration slightly to allow dynamic content to settle
-            setTimeout(restoreHighlights, 500);
-            // And try again on window load just in case
-            window.addEventListener('load', restoreHighlights);
-        }
-    });
+  chrome.storage.local.get(['highlights_' + window.location.hostname], (result) => {
+    if (result['highlights_' + window.location.hostname]) {
+      highlights = result['highlights_' + window.location.hostname];
+      renderHighlights();
+      // Delay restoration slightly to allow dynamic content to settle
+      setTimeout(restoreHighlights, 500);
+      // And try again on window load just in case
+      window.addEventListener('load', restoreHighlights);
+    }
+  });
 }
 
 // Event Listeners
 const closeBtn = sidebar.querySelector('.close-btn');
 const toggleBtn = sidebar.querySelector('.toggle-btn');
+const manageBtn = sidebar.querySelector('.manage-btn');
 
 closeBtn.addEventListener('click', () => {
-    sidebar.classList.remove('visible');
-    toggleBtn.style.display = 'flex';
+  sidebar.classList.remove('visible');
+  toggleBtn.style.display = 'flex';
 });
 
 toggleBtn.addEventListener('click', () => {
-    sidebar.classList.add('visible');
-    toggleBtn.style.display = 'none';
+  sidebar.classList.add('visible');
+  toggleBtn.style.display = 'none';
+});
+
+manageBtn.addEventListener('click', () => {
+  chrome.runtime.sendMessage({ action: "OPEN_DASHBOARD" });
 });
 
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "HIGHLIGHT_TEXT") {
-        const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
+  if (request.action === "HIGHLIGHT_TEXT") {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
 
-            // Add to sidebar and highlight
-            addHighlight(request.selectionText, range);
+      // Add to sidebar and highlight
+      addHighlight(request.selectionText, range);
 
-            // Clear selection
-            selection.removeAllRanges();
-        }
+      // Clear selection
+      selection.removeAllRanges();
     }
+  }
 });
 
 // Initialize
