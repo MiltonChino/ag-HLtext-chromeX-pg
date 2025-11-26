@@ -11,3 +11,6 @@ Thumbs.db
 # Extension builds
 *.crx
 *.pem
+
+#additional files
+notes.txt
