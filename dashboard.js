@@ -1,7 +1,60 @@
 document.addEventListener('DOMContentLoaded', () => {
   loadDashboard();
   document.getElementById('export-btn').addEventListener('click', exportHighlights);
+  document.getElementById('import-btn').addEventListener('click', () => {
+    document.getElementById('import-file').click();
+  });
+  document.getElementById('import-file').addEventListener('change', importHighlights);
 });
+
+function importHighlights(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const importedData = JSON.parse(e.target.result);
+
+      // We need to merge this with existing data
+      chrome.storage.local.get(null, (currentItems) => {
+        const newData = {};
+
+        for (const [hostname, highlights] of Object.entries(importedData)) {
+          const key = 'highlights_' + hostname;
+          const existingHighlights = currentItems[key] || [];
+
+          // Merge and Deduplicate (by ID)
+          const merged = [...existingHighlights];
+          const existingIds = new Set(existingHighlights.map(h => h.id));
+
+          highlights.forEach(h => {
+            if (!existingIds.has(h.id)) {
+              merged.push(h);
+              existingIds.add(h.id);
+            }
+          });
+
+          // Sort by date (newest first) - assuming ID is timestamp-based or we parse date
+          // Simple sort by ID (descending) as proxy for time
+          merged.sort((a, b) => b.id - a.id);
+
+          newData[key] = merged;
+        }
+
+        chrome.storage.local.set(newData, () => {
+          alert('Import successful!');
+          loadDashboard();
+        });
+      });
+    } catch (err) {
+      alert('Error importing file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  // Reset input
+  event.target.value = '';
+}
 
 function exportHighlights() {
   chrome.storage.local.get(null, (items) => {
