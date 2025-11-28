@@ -394,11 +394,19 @@ function deleteHighlight(id) {
 }
 
 function saveState(isVisible) {
-  const hostname = window.location.hostname;
-  chrome.storage.local.set({
-    ['highlights_' + hostname]: highlights,
-    ['sidebarVisible_' + hostname]: isVisible
-  });
+  try {
+    const hostname = window.location.hostname;
+    chrome.storage.local.set({
+      ['highlights_' + hostname]: highlights,
+      ['sidebarVisible_' + hostname]: isVisible
+    });
+  } catch (e) {
+    if (e.message.includes('Extension context invalidated')) {
+      console.warn('Extension context invalidated. Please reload the page to reconnect to the extension.');
+    } else {
+      console.error('Error saving state:', e);
+    }
+  }
 }
 
 function saveHighlights() {
@@ -407,28 +415,37 @@ function saveHighlights() {
 }
 
 function loadState() {
-  const hostname = window.location.hostname;
-  chrome.storage.local.get(['highlights_' + hostname, 'sidebarVisible_' + hostname], (result) => {
-    // Load Highlights
-    if (result['highlights_' + hostname]) {
-      highlights = result['highlights_' + hostname];
-      renderHighlights();
-      setTimeout(restoreHighlights, 500);
-      window.addEventListener('load', restoreHighlights);
-    }
+  try {
+    const hostname = window.location.hostname;
+    chrome.storage.local.get(['highlights_' + hostname, 'sidebarVisible_' + hostname], (result) => {
+      if (chrome.runtime.lastError) {
+        console.warn('Error loading state:', chrome.runtime.lastError);
+        return;
+      }
 
-    // Load Visibility
-    const savedVisibility = result['sidebarVisible_' + hostname];
-    const isVisible = savedVisibility !== false; // Default true
+      // Load Highlights
+      if (result['highlights_' + hostname]) {
+        highlights = result['highlights_' + hostname];
+        renderHighlights();
+        setTimeout(restoreHighlights, 500);
+        window.addEventListener('load', restoreHighlights);
+      }
 
-    if (isVisible) {
-      sidebar.classList.add('visible');
-      toggleBtn.style.display = 'none';
-    } else {
-      sidebar.classList.remove('visible');
-      toggleBtn.style.display = 'flex';
-    }
-  });
+      // Load Visibility
+      const savedVisibility = result['sidebarVisible_' + hostname];
+      const isVisible = savedVisibility !== false; // Default true
+
+      if (isVisible) {
+        sidebar.classList.add('visible');
+        toggleBtn.style.display = 'none';
+      } else {
+        sidebar.classList.remove('visible');
+        toggleBtn.style.display = 'flex';
+      }
+    });
+  } catch (e) {
+    console.warn('Extension context invalidated during load. This is expected if the extension was just reloaded.');
+  }
 }
 
 // Event Listeners
@@ -449,7 +466,12 @@ toggleBtn.addEventListener('click', () => {
 });
 
 manageBtn.addEventListener('click', () => {
-  chrome.runtime.sendMessage({ action: "OPEN_DASHBOARD" });
+  try {
+    chrome.runtime.sendMessage({ action: "OPEN_DASHBOARD" });
+  } catch (e) {
+    console.warn('Could not open dashboard: Extension context invalidated. Please reload the page.');
+    alert('Please reload the page to use the extension dashboard.');
+  }
 });
 
 // Listen for messages from background script
@@ -464,6 +486,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       // Clear selection
       selection.removeAllRanges();
+    }
+  }
+});
+
+// Keyboard Shortcut: Ctrl + .
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === '.') {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0 && !selection.isCollapsed) {
+      const range = selection.getRangeAt(0);
+      const text = selection.toString().trim();
+
+      if (text) {
+        addHighlight(text, range);
+        selection.removeAllRanges();
+      }
     }
   }
 });
