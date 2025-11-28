@@ -158,7 +158,7 @@ shadowRoot.appendChild(style);
 
 // Sidebar HTML
 const sidebar = document.createElement('div');
-sidebar.className = 'sidebar visible'; // Visible by default for now
+sidebar.className = 'sidebar'; // Default hidden, will be set by loadState
 sidebar.innerHTML = `
   <div class="header">
     <h2>Highlights</h2>
@@ -287,6 +287,7 @@ function addHighlight(text, range) {
 
   sidebar.classList.add('visible');
   toggleBtn.style.display = 'none';
+  saveState(true);
 }
 
 function restoreHighlights() {
@@ -392,19 +393,40 @@ function deleteHighlight(id) {
   renderHighlights();
 }
 
-function saveHighlights() {
-  chrome.storage.local.set({ ['highlights_' + window.location.hostname]: highlights });
+function saveState(isVisible) {
+  const hostname = window.location.hostname;
+  chrome.storage.local.set({
+    ['highlights_' + hostname]: highlights,
+    ['sidebarVisible_' + hostname]: isVisible
+  });
 }
 
-function loadHighlights() {
-  chrome.storage.local.get(['highlights_' + window.location.hostname], (result) => {
-    if (result['highlights_' + window.location.hostname]) {
-      highlights = result['highlights_' + window.location.hostname];
+function saveHighlights() {
+  const isVisible = sidebar.classList.contains('visible');
+  saveState(isVisible);
+}
+
+function loadState() {
+  const hostname = window.location.hostname;
+  chrome.storage.local.get(['highlights_' + hostname, 'sidebarVisible_' + hostname], (result) => {
+    // Load Highlights
+    if (result['highlights_' + hostname]) {
+      highlights = result['highlights_' + hostname];
       renderHighlights();
-      // Delay restoration slightly to allow dynamic content to settle
       setTimeout(restoreHighlights, 500);
-      // And try again on window load just in case
       window.addEventListener('load', restoreHighlights);
+    }
+
+    // Load Visibility
+    const savedVisibility = result['sidebarVisible_' + hostname];
+    const isVisible = savedVisibility !== false; // Default true
+
+    if (isVisible) {
+      sidebar.classList.add('visible');
+      toggleBtn.style.display = 'none';
+    } else {
+      sidebar.classList.remove('visible');
+      toggleBtn.style.display = 'flex';
     }
   });
 }
@@ -417,11 +439,13 @@ const manageBtn = sidebar.querySelector('.manage-btn');
 closeBtn.addEventListener('click', () => {
   sidebar.classList.remove('visible');
   toggleBtn.style.display = 'flex';
+  saveState(false);
 });
 
 toggleBtn.addEventListener('click', () => {
   sidebar.classList.add('visible');
   toggleBtn.style.display = 'none';
+  saveState(true);
 });
 
 manageBtn.addEventListener('click', () => {
@@ -445,4 +469,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // Initialize
-loadHighlights();
+loadState();
