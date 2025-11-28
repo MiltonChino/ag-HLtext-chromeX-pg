@@ -6,6 +6,16 @@ chrome.runtime.onInstalled.addListener(() => {
     });
 });
 
+// Listen for PDF navigation
+chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+    if (details.frameId === 0 && details.url.toLowerCase().endsWith('.pdf')) {
+        const viewerUrl = chrome.runtime.getURL('viewer.html') + '?file=' + encodeURIComponent(details.url);
+        chrome.tabs.update(details.tabId, { url: viewerUrl });
+    }
+}, {
+    url: [{ urlSuffix: '.pdf' }]
+});
+
 chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === "highlight-text" && tab.id) {
         chrome.tabs.sendMessage(tab.id, {
