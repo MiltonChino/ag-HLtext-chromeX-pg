@@ -1,26 +1,103 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-  <title>Highlights Dashboard</title>
+  <meta charset="UTF-8">
+  <title>Highlights & Tasks Management Hub</title>
   <link rel="stylesheet" href="dashboard.css">
 </head>
 
 <body>
   <div class="container">
-    <header>
-      <h1>Highlights Dashboard</h1>
-      <p>Manage your saved highlights across the web</p>
-      <button id="export-btn" class="export-btn">Export</button>
-      <button id="import-btn" class="import-btn">Import</button>
-      <input type="file" id="import-file" style="display: none" accept=".json">
+    <header class="app-header">
+      <div class="header-main">
+        <h1>📝 Highlights & Tasks Hub</h1>
+        <p>Manage, edit, create, and organize all your web highlights, notes, and tasks</p>
+      </div>
+      <div class="header-actions">
+        <button id="add-hl-btn" class="btn btn-primary">+ Add Highlight</button>
+        <button id="add-task-btn" class="btn btn-success">+ Add Task</button>
+        <button id="export-btn" class="btn btn-outline">Export JSON</button>
+        <button id="import-btn" class="btn btn-outline">Import JSON</button>
+        <input type="file" id="import-file" style="display: none" accept=".json">
+      </div>
     </header>
 
-    <div id="domains-list" class="domains-list">
-      <!-- Domains will be injected here -->
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="highlights">Highlights & Notes (<span id="hl-tab-count">0</span>)</button>
+      <button class="tab-btn" data-tab="tasks">Tasks (<span id="task-tab-count">0</span>)</button>
+      <button class="tab-btn" data-tab="domains">Domains (<span id="domain-tab-count">0</span>)</button>
+    </nav>
+
+    <!-- Search & Filter Controls -->
+    <div class="filter-bar">
+      <input type="text" id="search-input" placeholder="🔍 Search text, notes, or URLs..." class="search-input">
+      <div class="task-filters" id="task-filter-group" style="display: none;">
+        <button class="filter-chip active" data-task-filter="all">All</button>
+        <button class="filter-chip" data-task-filter="active">Active</button>
+        <button class="filter-chip" data-task-filter="completed">Completed</button>
+      </div>
+    </div>
+
+    <!-- Tab Panels -->
+    <main>
+      <!-- Highlights Panel -->
+      <section id="panel-highlights" class="tab-panel active">
+        <div id="highlights-container" class="cards-grid"></div>
+      </section>
+
+      <!-- Tasks Panel -->
+      <section id="panel-tasks" class="tab-panel">
+        <div id="tasks-container" class="cards-grid"></div>
+      </section>
+
+      <!-- Domains Panel -->
+      <section id="panel-domains" class="tab-panel">
+        <div id="domains-container" class="domains-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Add Item Modal -->
+  <div id="item-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modal-heading">Add New Item</h2>
+        <button id="modal-close" class="close-btn">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="item-type">Item Type</label>
+          <select id="item-type" class="form-control">
+            <option value="highlight">Highlight & Note</option>
+            <option value="task">Task</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="item-text" id="label-text">Highlighted Text / Task Title *</label>
+          <textarea id="item-text" class="form-control" rows="2" required placeholder="Enter quote or task title..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="item-note">Note / Comments (Optional)</label>
+          <textarea id="item-note" class="form-control" rows="2" placeholder="Enter comments or task details..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="item-url">URL Reference *</label>
+          <input type="url" id="item-url" class="form-control" required placeholder="https://example.com/page">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="modal-cancel" class="btn btn-outline">Cancel</button>
+        <button id="modal-save" class="btn btn-primary">Save Item</button>
+      </div>
     </div>
   </div>
+
   <script src="dashboard.js"></script>
 </body>
 
-</html>
+</html>
